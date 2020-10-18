@@ -1,0 +1,422 @@
+---
+title: "Concurso precios de casas"
+output:
+  html_document:
+    df_print: paged
+---
+```{r}
+library(tidyverse)
+library(tidymodels)
+```
+
+
+
+```{r}
+casas_train <- read.csv("casas_entrena.csv")
+glimpse(casas_train)
+```
+
+### Codificación de variables
+
+Codificamos adecuadamente las variables ordinales
+```{r}
+
+casas_train$Lot.Shape <- 
+  factor(casas_train$Lot.Shape, 
+         levels = c("IR3", "IR2", "IR1", "Reg"), 
+         ordered = T) 
+
+casas_train$Utilities <- 
+  factor(casas_train$Utilities, 
+       levels = c("ELO", "NoSeWa", "NoSewr", "AllPub"), 
+       ordered =T) 
+
+casas_train$Land.Slope <- 
+  factor(casas_train$Land.Slope, 
+       levels = c("Sev", "Mod", "Gtl"),
+       ordered = TRUE) 
+
+casas_train$Exter.Qual <- 
+  factor(casas_train$Exter.Qual,  
+       levels = c("Po", "Fa", "TA", "Gd", "Ex"),
+       ordered = T) 
+
+casas_train$Exter.Cond <-
+  factor(casas_train$Exter.Cond,
+       levels = c("Po", "Fa", "TA", "Gd", "Ex"),
+       ordered = T) 
+
+casas_train$Kitchen.Qual <- 
+  factor(casas_train$Kitchen.Qual, 
+       levels = c("Po", "Fa", "TA", "Gd", "Ex"),
+       ordered = T) 
+
+casas_train$Bsmt.Qual <-
+  factor(casas_train$Bsmt.Qual, 
+       levels = c("NA", "Po", "Fa", "TA", "Gd", "Ex"),
+       ordered = T) 
+
+casas_train$Bsmt.Cond <-
+  factor(casas_train$Bsmt.Cond,
+       levels = c("NA", "Po", "Fa", "TA", "Gd", "Ex"),
+       ordered = T) 
+
+casas_train$Fireplace.Qu <-
+  factor(casas_train$Fireplace.Qu,
+       levels = c("NA", "Po", "Fa", "TA", "Gd", "Ex"),
+       ordered = T) 
+
+casas_train$Garage.Qual <-
+  factor(casas_train$Garage.Qual,
+       levels = c("NA", "Po", "Fa", "TA", "Gd", "Ex"),
+       ordered = T) 
+
+casas_train$Garage.Cond <-
+  factor(casas_train$Garage.Cond,
+       levels = c("NA", "Po", "Fa", "TA", "Gd", "Ex"),
+       ordered = T) 
+
+casas_train$Bsmt.Exposure <-
+  factor(casas_train$Bsmt.Exposure,
+       levels = c("NA", "No", "Mn", "Av", "Gd"), 
+       ordered = T) 
+
+casas_train$BsmtFin.Type.1 <-
+  factor(casas_train$BsmtFin.Type.1,  
+       levels = c("NA", "Unf", "LwQ", "Rec", "BLQ", "ALQ", "GLQ"),
+       ordered = TRUE)
+
+casas_train$BsmtFin.Type.2 <-
+  factor(casas_train$BsmtFin.Type.2,  
+       levels = c("NA", "Unf", "LwQ", "Rec", "BLQ", "ALQ", "GLQ"),
+       ordered = TRUE)
+
+casas_train$Heating.QC <-
+  factor(casas_train$Heating.QC,
+       levels = c("Po", "Fa", "TA", "Gd", "Ex"), 
+       ordered = TRUE) 
+
+casas_train$Electrical <-
+  factor(casas_train$Electrical, 
+        levels = c("Mix", "FuseP", "FuseF", "FuseA", "SBrkr"), 
+        ordered = TRUE)
+
+casas_train$Functional <-
+  factor(casas_train$Functional, 
+        levels = c("Sal", "Sev", "Maj2", "Maj1", "Mod", "Min2", "Min1", "Typ"),
+        ordered = TRUE) 
+
+casas_train$Garage.Finish <-
+  factor(casas_train$Garage.Finish, 
+        levels = c("NoT", "Unf", "RFn", "Fin"), 
+        ordered = TRUE)
+
+casas_train$Paved.Drive <-
+  factor(casas_train$Paved.Drive, 
+         levels = c("N", "P", "Y"),
+         ordered = TRUE) 
+
+casas_train$Pool.QC <-
+  factor(casas_train$Pool.QC, 
+         levels = c("NoT", "Fa", "TA", "Gd", "Ex"),
+         ordered = TRUE) 
+
+casas_train$Fence <-
+  factor(casas_train$Fence, 
+         levels = c("NoT", "MnWw", "GdWo", "MnPrv", "GdPrv"),
+         ordered = TRUE) 
+```
+
+Luego se me complicó pasar de nominales a numericas con tidymodels, entonces codifiqué nuevas variables pero que fueran numéricas
+
+```{r}
+casas_train <- 
+  casas_train %>% 
+  mutate(Bsmt = as.integer(case_when(Bsmt.Cond == "Po" ~ '1',
+                                    Bsmt.Cond == "Fa" ~ '2', 
+                                    Bsmt.Cond == "TA" ~ '3',
+                                    Bsmt.Cond == "Gd" ~ '4',
+                                    Bsmt.Cond == "Ex" ~ '5', 
+                          ))) 
+
+casas_train$Bsmt[is.na(casas_train$Bsmt)] = 0
+
+casas_train <- 
+  casas_train %>% 
+  mutate(Kitchen = as.integer(case_when(Kitchen.Qual == "Po" ~ '1',
+                                    Kitchen.Qual == "Fa" ~ '2', 
+                                    Kitchen.Qual == "TA" ~ '3',
+                                    Kitchen.Qual == "Gd" ~ '4',
+                                    Kitchen.Qual == "Ex" ~ '5', )))
+```
+
+### Análisis exploratorio
+
+```{r}
+qplot(casas_train$SalePrice)
+```
+Revisar los datos extremos, tal vez podríamos quitarlos
+```{r}
+casas_train %>% filter(SalePrice > 500000)
+```
+
+O mantenerlos y usar logaritmo de los datos o ambos. 
+Usando logaritmo podríamos evitar cambios fuertes.
+
+```{r}
+qplot(log(casas_train$SalePrice))
+```
+Neighborhood
+```{r}
+casas_train %>% 
+  group_by(Neighborhood) %>% count %>% arrange(n)
+
+ggplot(casas_train) + geom_point(aes(x = Neighborhood, y = SalePrice))
+```
+Hay barrios con pocas observaciones, eso nos va a generar sobreestimación cuando aparzcan estos casos en la de prueba. 
+
+
+```{r}
+ggplot(casas_train) + geom_point(aes(x = Overall.Qual, y = SalePrice))
+ggplot(casas_train) + geom_point(aes(x = Overall.Cond, y = SalePrice))
+ggplot(casas_train) + geom_point(aes(x = Exter.Qual, y = SalePrice))
+ggplot(casas_train) + geom_point(aes(x = Exter.Cond, y = SalePrice))
+
+ggplot(casas_train) + geom_point(aes(x = log(Lot.Area), y = log(SalePrice)))
+
+```
+Podríamos unir en una misma categoría el 1 y 2, así como el 9 y 10, dado que hay pocas observaciones
+```{r}
+ggplot(casas_train) + geom_boxplot(aes(y = log(SalePrice), x = factor(Overall.Qual))) +geom_jitter(aes(y = log(SalePrice), x = factor(Overall.Qual)), alpha = .4, size = 1)
+```
+
+```{r}
+ggplot(casas_train) + geom_boxplot(aes(y = SalePrice, x = factor(Overall.Cond))) +geom_jitter(aes(y = SalePrice, x = factor(Overall.Cond)), alpha = .4, size = 1)
+```
+
+```{r}
+ggplot(casas_train) + geom_boxplot(aes(y = log(SalePrice), x = factor(Overall.Cond))) +geom_jitter(aes(y = log(SalePrice), x = factor(Overall.Cond)), alpha = .4, size = 1)
+```
+
+
+Revisar la base de datos de prueba, creo que solo serán ventas normales, por lo que eliminaré las demás ventas
+```{r}
+casas_train %>% 
+  group_by(Sale.Condition) %>% 
+  count
+```
+```{r}
+casas_train <- casas_train %>% 
+  filter(Sale.Condition == "Normal")
+```
+Pensé que Utilities (electricidad, agua, tanque séptico, drenaje) sería algo importante para determinar el precio. Pero todas las casas, exepto una, tienen todos los servicios. Por lo que esta variable no nos da información. Para la predicción, es una variable importante, si llega a haber muchas casas sin algún servicio. 
+
+```{r}
+casas_train %>% group_by(Utilities) %>% count
+
+```
+Foundation (cimientos)
+```{r}
+casas_train %>% group_by(Foundation) %>% summarise(mean(SalePrice), n())
+```
+
+Condition.1 y 2 (proximidad a ciertas condiciones como: a parques, ciertas avenidas)
+
+```{r}
+casas_train %>% group_by(Condition.1) %>% summarise(mean(SalePrice), n())
+```
+Sótano
+
+```{r}
+casas_train %>% group_by(Bsmt.Cond) %>% summarise(mean(SalePrice), n())
+
+```
+
+Baños
+Codifiqué nueva variable para baños, sume la variable de baños y medios baños (que no estuvieran en el sótano)
+
+```{r}
+casas_train <- 
+  casas_train %>% 
+  mutate(TotalBaths = Full.Bath + .5 * Half.Bath)
+
+```
+
+
+### Recetas tidymodels
+
+```{r}
+receta_simple <- 
+  recipe(SalePrice ~ Overall.Qual + Overall.Cond + Lot.Area + Neighborhood + Condition.1 + Condition.2 + Foundation + Bsmt + TotalBaths + Bedroom.AbvGr + Kitchen + Garage.Area + Gr.Liv.Area, 
+         data = casas_train) %>% 
+  step_dummy(Neighborhood, Condition.1, Condition.2, Foundation) %>% 
+  step_normalize(Overall.Qual, Overall.Cond, Lot.Area, Bsmt, TotalBaths, Bedroom.AbvGr, Kitchen, Garage.Area, Gr.Liv.Area) 
+  
+
+receta_simple
+```
+### Prep los datos
+
+
+
+
+```{r}
+simple_prep <- prep(receta_simple, data = casas_train)
+simple_train_prep <- bake(simple_prep, new_data = casas_train)
+
+
+modelo_simple <- linear_reg(mixture = 0, penalty = tune()) %>% 
+  set_engine("glmnet")
+
+wf_simple <- workflow() %>% 
+  add_model(modelo_simple) %>% 
+  add_recipe(receta_simple)
+
+bf_set <- parameters(penalty(range = c(3, 5), trans = log10_trans()))
+bf_grid <- grid_regular(bf_set, levels = 100)
+
+validacion_particion <- vfold_cv(casas_train, v = 10)
+
+metricas_vc <- tune_grid(wf_simple, 
+                         resamples = validacion_particion, 
+                         grid = bf_grid, 
+                         metrics = metric_set(rmse, mae))
+
+
+```
+```{r}
+ggplot(metricas_vc %>% unnest(.metrics) %>% filter(.metric == "rmse"), 
+       aes(x = penalty, y = .estimate)) + geom_point() +
+  scale_x_log10()
+```
+
+```{r}
+ggplot(metricas_vc %>% unnest(.metrics) %>% filter(.metric == "mae"), 
+       aes(x = penalty, y = .estimate)) + geom_point() +
+  scale_x_log10()
+```
+
+```{r}
+metricas_resumen <-
+  metricas_vc %>% 
+  collect_metrics()
+```
+
+
+```{r}
+g_rmse <- ggplot(metricas_resumen %>% filter(.metric == "rmse"), 
+       aes(x = penalty, y = mean, ymin = mean - std_err, ymax = mean + std_err)) +
+  geom_linerange() +
+  geom_point(colour = "red") +
+  scale_x_log10()
+
+g_mae <- ggplot(metricas_resumen %>% filter(.metric == "mae"), 
+       aes(x = penalty, y = mean, ymin = mean - std_err, ymax = mean + std_err)) +
+  geom_linerange() +
+  geom_point(colour = "red") +
+  scale_x_log10()
+
+
+g_rmse
+g_mae
+```
+
+```{r}
+metricas_vc %>% show_best(metric = "rmse")
+```
+```{r}
+metricas_vc %>% show_best(metric = "mae")
+```
+
+
+
+
+
+
+
+#variables ordinales
+casas_train$Lot.Shape
+casas_train$Utilities
+casas_train$Land.Slope
+casas_train$Overall.Qual
+casas_train$Overall.Cond
+casas_train$Exter.Qual
+casas_train$Exter.Cond
+casas_train$Bsmt.Qual
+casas_train$Bsmt.Cond
+casas_train$Bsmt.Exposure
+casas_train$BsmtFin.Type.1
+casas_train$BsmtFin.Type.2
+casas_train$Heating.QC
+casas_train$Electrical
+casas_train$Kitchen.Qual
+casas_train$Functional
+casas_train$Fireplace.Qu
+casas_train$Garage.Finish
+casas_train$Garage.Qual
+casas_train$Garage.Cond
+casas_train$Paved.Drive
+casas_train$Pool.QC
+casas_train$Fence
+
+
+
+#Lot.Shape, Utilities, Land.Slope, Overall.Qual, Overall.Cond, Exter.Qual, Exter.Cond, Bsmt.Qual, Bsmt.Cond, Bsmt.Exposure, BsmtFin.Type.1, BsmtFin.Type.2, Heating.QC, Electrical, Kitchen.Qual, Functional, Fireplace.Qu, Garage.Finish, Garage.Qual, Garage.Cond, Paved.Drive, Pool.QC, Fence
+```
+
+
+#variables nominales
+casas_train$MS.SubClass
+casas_train$MS.Zoning
+casas_train$Street
+casas_train$Alley
+casas_train$Land.Contour
+casas_train$Lot.Config
+casas_train$Neighborhood
+casas_train$Condition.1
+casas_train$Condition.2
+casas_train$Bldg.Type
+casas_train$House.Style
+casas_train$Roof.Style
+casas_train$Roof.Matl
+casas_train$Exterior.1st
+casas_train$Exterior.2nd
+casas_train$Mas.Vnr.Type
+casas_train$Foundation
+casas_train$Heating #tal vez podría ser ordinal
+casas_train$Central.Air #tal vez podría er ordinal
+casas_train$Garage.Type
+casas_train$Misc.Feature
+casas_train$Sale.Type
+casas_train$Sale.Condition
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
