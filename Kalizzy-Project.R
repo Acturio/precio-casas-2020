@@ -188,7 +188,7 @@ casas_prueba <- read_csv("data/casas_prueba.csv")
 
   casas %>% names()
   casas$Bsmt_Qual  %>% unique()
-  casas$Exter_Qual %>% table(useNA = "always")
+  casas$Lot_Shape %>% table(useNA = "always")
 
   set.seed(20180911)
   casas_split <- initial_split(casas_df1, prop = .7)
@@ -245,6 +245,8 @@ casas_prueba <- read_csv("data/casas_prueba.csv")
             Bsmt_Full_Bath, Bsmt_Half_Bath, 
             Kitchen_AbvGr, BsmtFin_Type_1_Unf) %>% 
     prep()
+  
+  # interacción area habitaciones con el area total (area_habit / area_total)
   
   casa_juiced <- juice(casas_rec)
   
