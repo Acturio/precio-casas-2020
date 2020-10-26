@@ -39,7 +39,8 @@ casas_prueba <- read_csv("data/casas_prueba.csv")
          Mas_Vnr_Type =replace_na(Mas_Vnr_Type, "Missing"),
          Mas_Vnr_Area = replace_na(Mas_Vnr_Area, 0), 
          Electrical = replace_na(Electrical, "Missing") ,
-         Log_SalePrice = log(SalePrice)
+         Log_SalePrice = log(SalePrice),
+         ID = 1:nrow(casas)
     ) %>% 
     mutate_if(is.character, as.factor)
   
@@ -128,7 +129,56 @@ casas_prueba <- read_csv("data/casas_prueba.csv")
   
   casas %>% filter (Sale_Condition == 'Normal')  %>%  plot_missing()
   
-#### MODELO 1 ####
+  ####
+  # gráficas exploratorias
+  casas$Neighborhood %>% table() %>% as.data.frame() %>% arrange(Freq) %>% filter(Freq <= 50)
+  casas %>% ggplot(aes(x = reorder(Neighborhood, Log_SalePrice, median), y = Log_SalePrice)) +
+    geom_boxplot() +
+    geom_jitter()
+  
+  casas %>% ggplot(aes(x = reorder(Exter_Cond, Log_SalePrice), y = Log_SalePrice)) +
+    geom_boxplot() +
+    geom_jitter(alpha = 0.15)
+  
+  casas %>% ggplot(aes(x = reorder(Condition_1, Log_SalePrice, median), y = Log_SalePrice)) +
+    geom_boxplot() +
+    geom_jitter(alpha = 0.15)
+  
+  casas %>% ggplot(aes(x = reorder(Land_Slope, Log_SalePrice, median), y = Log_SalePrice)) +
+    geom_boxplot() +
+    geom_jitter(alpha = 0.15)
+  
+  casas %>% ggplot(aes(x = reorder(Land_Contour, Log_SalePrice, median), y = Log_SalePrice)) +
+    geom_boxplot() +
+    geom_jitter(alpha = 0.15)
+  
+  casas %>% ggplot(aes(x = reorder(Lot_Shape, Log_SalePrice, median), y = Log_SalePrice)) +
+    geom_boxplot() +
+    geom_jitter(alpha = 0.15)
+  
+  casas %>% ggplot(aes(x = reorder(Kitchen_Qual, Log_SalePrice), y = Log_SalePrice)) +
+    geom_boxplot() +
+    geom_jitter(alpha = 0.15)
+  
+  casas %>% ggplot(aes(x = reorder(Bsmt_Cond, Log_SalePrice), y = Log_SalePrice)) +
+    geom_boxplot() +
+    geom_jitter(alpha = 0.15)
+  
+  casas %>% ggplot(aes(x = reorder(Bsmt_Qual, Log_SalePrice), y = Log_SalePrice)) +
+    geom_boxplot() +
+    geom_jitter(alpha = 0.15)
+  
+  casas %>% ggplot(aes(x = reorder(BsmtFin_Type_1, Log_SalePrice, median), y = Log_SalePrice)) +
+    geom_boxplot() +
+    geom_jitter(alpha = 0.15)
+  
+  
+  
+  #### Casos a eliminar de entrenamiento
+  
+  casas %>% filter(ID %in% c(58, 250, 272, 404, 419, 427, 458, 696, 855, 951))
+
+  #### MODELO 1 ####
   
   casas_df1 = casas %>% 
     dplyr::filter (Sale_Condition == 'Normal') %>% 
@@ -183,23 +233,27 @@ casas_prueba <- read_csv("data/casas_prueba.csv")
             Central_Air,
             Bedroom_AbvGr,
             Misc_Val,
-            Neighborhood
+            Neighborhood,
+            ID
             )
-
+  
   casas %>% names()
   casas$Bsmt_Qual  %>% unique()
   casas$Lot_Shape %>% table(useNA = "always")
 
   set.seed(20180911)
+  #set.seed(20101123)
   casas_split <- initial_split(casas_df1, prop = .7)
   casas_train <- training(casas_split)
   casas_test  <- testing(casas_split)
-  
+
   modelo1 <-  linear_reg() %>%
     set_mode("regression") %>%
     set_engine("lm")
-  
+
   casas_rec <- recipe(Log_SalePrice ~ . , data = casas_train) %>%
+    update_role(ID, new_role = "id variable") %>% 
+    step_filter(!ID %in% c(855, 427, 294, 249, 872, 311, 58, 272, 951, 419, 404)) %>% 
     step_mutate(TotalBaths = Full_Bath + 0.5 * Half_Bath + Bsmt_Full_Bath + Bsmt_Half_Bath * 0.5,
                 Garage_Yr_Blt = if_else(is.na(Garage_Yr_Blt), Year_Built, Garage_Yr_Blt),
                 Age_House = Yr_Sold - Year_Remod,
@@ -207,7 +261,8 @@ casas_prueba <- read_csv("data/casas_prueba.csv")
                 Overall_Qual_2 = Overall_Qual^2,
                 AvgRoomSF   = Gr_Liv_Area / TotRms_AbvGrd,
                 PorchSF     = Enclosed_Porch + ThirdSsn_Porch + Open_Porch_SF,
-                Porch       = factor(PorchSF > 0)) %>% 
+                Porch       = factor(PorchSF > 0)
+                ) %>% 
     step_interact(~ Overall_Qual:TotalBaths) %>%
     step_interact(~ Overall_Cond:TotRms_AbvGrd) %>%
     step_interact(~ Overall_Qual:TotRms_AbvGrd) %>%
@@ -221,14 +276,44 @@ casas_prueba <- read_csv("data/casas_prueba.csv")
     step_interact(~ Age_House:TotRms_AbvGrd) %>%
     step_interact(~ Overall_Qual:Misc_Val) %>%
     step_ratio(Second_Flr_SF, denom = denom_vars(First_Flr_SF)) %>% 
-    step_other(Neighborhood, threshold = 25) %>% 
-    step_other(Exter_Cond, threshold = 40) %>% 
-    step_other(Condition_1, threshold = 15) %>% 
-    step_other(Land_Slope, threshold = 50) %>% 
-    step_other(Land_Contour, threshold = 50) %>% 
-    step_other(Lot_Shape, threshold = 500) %>% 
+    #step_other(Neighborhood, threshold = 25) %>% 
+    #step_other(Exter_Cond, threshold = 40) %>% 
+    #step_other(Condition_1, threshold = 15) %>% 
+    #step_other(Land_Slope, threshold = 50) %>% 
+    #step_other(Land_Contour, threshold = 50) %>% 
+    #step_other(Lot_Shape, threshold = 500) %>% 
     #step_other(Foundation, threshold = 10) %>% 
-
+    step_mutate(Exter_Cond = fct_collapse(Exter_Cond, Bad = c("Po", "Fa"),
+                                          TA = c("TA", "Gd", "Ex")),
+                Condition_1 = fct_collapse(Condition_1, RRNe_Artery = c("RRNe", "Artery"), # Revisar 
+                                           Feedr_RRAe_RRNn = c("Feedr", "RRAe", "RRNn"),
+                                           Norm = "Norm",
+                                           RRAn_PosN_PosA = c("RRAn", "PosN", "PosA")),
+                Land_Slope = fct_collapse(Land_Slope, Gtl = "Gtl",
+                                          Mod_Sev = c("Mod", "Sev")),
+                Land_Contour = fct_collapse(Land_Contour, Low_HLS = c("Low","HLS"),
+                                            Bnk_Lvl = c("Lvl","Bnk")),
+                Lot_Shape = fct_collapse(Lot_Shape, Reg = "Reg",
+                                         IRREG = c("IR3", "IR2", "IR1")),
+                Kitchen_Qual = fct_collapse(Kitchen_Qual, Bad = c("Fa", "Po"),
+                                            TA = "TA", Gd = "Gd", Ex = "Ex"),
+                Bsmt_Cond = fct_collapse(Bsmt_Cond, Ex = c("Gd", "Ex"),
+                                         TA = "TA", Missing = "Missing", Fa = "Fa"),
+                Bsmt_Qual = fct_collapse(Bsmt_Qual, Ex = "Ex", Gd = "Gd", 
+                                         TA = "TA", "Fa" = "Fa", Missing = c("Missing", "Po")),
+                BsmtFin_Type_1 = fct_collapse(BsmtFin_Type_1, Rec_BLQ = c("Rec", "BLQ")),
+                Neighborhood = fct_collapse(Neighborhood, NoRidge_GrnHill = c("NoRidge", "GrnHill"),
+                                            Crawfor_Greens = c("Crawfor", "Greens"),
+                                            Blueste_Mitchel = c("Blueste", "Mitchel"),
+                                            Blmngtn_CollgCr = c("Blmngtn", "CollgCr"),
+                                            NPkVill_NAmes = c("NPkVill", "NAmes"),
+                                            Veenker_StoneBr = c("Veenker", "StoneBr"),
+                                            BrDale_IDOTRR = c("BrDale", "IDOTRR"),
+                                            SWISU_Sawyer = c("SWISU", "Sawyer"),
+                                            ClearCr_Somerst = c("ClearCr", "Somerst"))
+                                            
+                ) %>% 
+    
     step_relevel(Bsmt_Qual, ref_level = "TA") %>% 
     step_normalize(all_predictors(), -all_nominal()) %>%
     step_dummy(all_nominal()) %>% 
@@ -241,6 +326,7 @@ casas_prueba <- read_csv("data/casas_prueba.csv")
     step_interact(~ matches("Heating_QC"):TotRms_AbvGrd) %>%
     step_interact(~ matches("Heating_QC"):TotalSF) %>%
     step_interact(~ matches("Heating_QC"):Second_Flr_SF) %>%
+    #step_interact(~ matches("Neighborhood"):Gr_Liv_Area) %>%
     step_rm(First_Flr_SF, Second_Flr_SF, Year_Remod, Yr_Sold,
             Bsmt_Full_Bath, Bsmt_Half_Bath, 
             Kitchen_AbvGr, BsmtFin_Type_1_Unf) %>% 
@@ -254,19 +340,41 @@ casas_prueba <- read_csv("data/casas_prueba.csv")
   #lm_fit1 %>% tidy() %>% arrange(desc(std.error)) %>% as.data.frame()
   
   p_test <- predict(lm_fit1, bake(casas_rec, casas_test)) %>%
-    bind_cols(casas_test) %>% dplyr::select(.pred, Log_SalePrice) %>% 
+    bind_cols(casas_test) %>% #dplyr::select(.pred, Log_SalePrice) %>% 
     dplyr::mutate(.pred=exp(.pred), Log_SalePrice = exp(Log_SalePrice)) %>% 
     dplyr::mutate(err = (log(1 + Log_SalePrice) - log(1 + .pred))^2)
   
   p_test %>% pull(err) %>% mean() %>% sqrt()
 # 0.1289086 
-0.08862085
+  0.08256307
+  
+  0.08546813 - 0.08256307# 
+  
+ 
+
+  p_test %>% ggplot(aes(x= Log_SalePrice, y=.pred)) + geom_point() 
 
 
-p_test %>% ggplot(aes(x= Log_SalePrice, y=.pred)) + geom_point() 
+
+
+
+
+
+
+p_test %>% arrange(desc(err)) %>% mutate(gd = if_else(err > 0.10,1,0)) %>% 
+  ggplot(aes(x= Log_SalePrice, y=.pred, color = gd)) + 
+  geom_point() 
   
-  
-  
+
+p_test %>% arrange(desc(err)) %>% mutate(gd = if_else(err > 0.1,1,0)) %>% as.data.frame() %>%  head()
+
+p_test %>% arrange(desc(err)) %>% mutate(gd = if_else(err > 0.1,1,0)) %>% 
+  filter(gd == 0) %>% pull(err) %>% mean() %>% sqrt()
+
+
+
+
+
 #### PRUEBA KAGGLE####
   
   test <- casas_prueba %>% 
