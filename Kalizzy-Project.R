@@ -344,8 +344,7 @@ casas_prueba <- read_csv("data/casas_prueba.csv")
     step_interact(~ Overall_Qual:Misc_Val) %>%
     step_interact(~ Overall_Cond:Bedroom_AbvGr) %>%
     step_interact(~ Second_Flr_SF:First_Flr_SF) %>%
-
-    step_ratio(Bedroom_AbvGr, denom = denom_vars(TotalSF)) %>% 
+    step_ratio(Bedroom_AbvGr, denom = denom_vars(Gr_Liv_Area)) %>% 
     step_ratio(Second_Flr_SF, denom = denom_vars(First_Flr_SF)) %>% 
     #step_other(Neighborhood, threshold = 25) %>% 
     #step_other(Exter_Cond, threshold = 40) %>% 
@@ -423,9 +422,9 @@ casas_prueba <- read_csv("data/casas_prueba.csv")
   p_test %>% pull(err) %>% mean() %>% sqrt()
 # 0.1289086         
   
-  0.08021955
+  0.07993811
   
-  0.08897 - 0.08021955 # Hoy
+  0.08897 - 0.07993811 # Hoy
  
 
   p_test %>% ggplot(aes(x= Log_SalePrice, y=.pred)) + geom_point() 
