@@ -1,0 +1,411 @@
+####  Librerias ####
+library(readr)
+library(tidyr)
+library(DataExplorer)
+library(dplyr)
+library(purrr)
+library(stringr)
+library(tidymodels)
+library(tidypredict)
+
+
+#### LECTURA DE ARCHIVOS ####
+
+casas <- read_csv("data/casas_entrena.csv")
+casas_prueba <- read_csv("data/casas_prueba.csv")
+
+#### TRATAMIENTO ####
+names(casas) <- names(casas) %>% map_chr(str_replace_all," ", "_" ) 
+
+casas <- casas %>% 
+  mutate(Pool_QC = replace_na(Pool_QC, 0),
+         Alley= replace_na(Alley, "Missing"), 
+         Fence= replace_na(Fence, "Missing"),
+         Fireplace_Qu= replace_na(Fireplace_Qu, "Missing"),
+         Lot_Frontage=replace_na(Lot_Frontage, 0),
+         Garage_Yr_Blt = if_else(is.na(Garage_Yr_Blt), Year_Built, Garage_Yr_Blt), 
+         Garage_Type = replace_na (Garage_Type, "Missing"),
+         Garage_Finish = replace_na( Garage_Finish,"Missing"), 
+         Garage_Qual = replace_na(Garage_Qual, "Missing"),
+         Garage_Cond =replace_na(Garage_Cond, "Missing"), 
+         Bsmt_Qual =replace_na(Bsmt_Qual, "Missing"),
+         Bsmt_Cond = replace_na(Bsmt_Cond, "Missing"), 
+         Bsmt_Exposure =replace_na(Bsmt_Exposure, "Missing"),
+         BsmtFin_Type_1 =replace_na(BsmtFin_Type_1, "Missing"),
+         BsmtFin_Type_2 =replace_na(BsmtFin_Type_2, "Missing"), 
+         Mas_Vnr_Type =replace_na(Mas_Vnr_Type, "Missing"),
+         Mas_Vnr_Area = replace_na(Mas_Vnr_Area, 0), 
+         Bsmt_Full_Bath = replace_na(Bsmt_Full_Bath, 0), 
+         Bsmt_Half_Bath = replace_na(Bsmt_Half_Bath, 0), 
+         Electrical = replace_na(Electrical, "Missing") ,
+         Heating_QC = replace_na(Heating_QC, "Missing"),
+         SalePrice_m2 = SalePrice/Gr_Liv_Area,
+         ID = 1:nrow(casas)) %>% filter (Sale_Condition == 'Normal') %>% 
+  mutate_if(is.character, as.factor)
+
+
+names(casas_prueba) <- names(casas_prueba) %>% map_chr(str_replace_all," ", "_" ) 
+
+casas_prueba <- casas_prueba %>% 
+  mutate(Pool_QC = replace_na(Pool_QC, 0),
+         Alley= replace_na(Alley, "Missing"), 
+         Fence= replace_na(Fence, "Missing"),
+         Fireplace_Qu= replace_na(Fireplace_Qu, "Missing"),
+         Lot_Frontage=replace_na(Lot_Frontage, 0),
+         Garage_Yr_Blt = if_else(is.na(Garage_Yr_Blt), Year_Built, Garage_Yr_Blt), 
+         Garage_Type = replace_na (Garage_Type, "Missing"),
+         Garage_Finish = replace_na( Garage_Finish,"Missing"), 
+         Garage_Qual = replace_na(Garage_Qual, "Missing"),
+         Garage_Cond =replace_na(Garage_Cond, "Missing"), 
+         Bsmt_Qual =replace_na(Bsmt_Qual, "Missing"),
+         Bsmt_Cond = replace_na(Bsmt_Cond, "Missing"), 
+         Bsmt_Exposure =replace_na(Bsmt_Exposure, "Missing"),
+         BsmtFin_Type_1 =replace_na(BsmtFin_Type_1, "Missing"),
+         BsmtFin_Type_2 =replace_na(BsmtFin_Type_2, "Missing"), 
+         Mas_Vnr_Type =replace_na(Mas_Vnr_Type, "Missing"),
+         Mas_Vnr_Area = replace_na(Mas_Vnr_Area, 0), 
+         Bsmt_Full_Bath = replace_na(Bsmt_Full_Bath, 0), 
+         Bsmt_Half_Bath = replace_na(Bsmt_Half_Bath, 0), 
+         Electrical = replace_na(Electrical, "Missing"),
+         Heating_QC = replace_na(Heating_QC, "Missing")
+  ) %>% 
+  mutate_if(is.character, as.factor)
+
+
+#### Variables  ####
+
+casas_df1 = casas %>% 
+  dplyr::filter (Sale_Condition == 'Normal') %>% 
+  dplyr::select (SalePrice_m2,
+                 Overall_Qual,
+                 Year_Built  ,
+                 Year_Remod = 'Year_Remod/Add',
+                 Mas_Vnr_Area ,
+                 Total_Bsmt_SF ,     
+                 First_Flr_SF = '1st_Flr_SF',
+                 Second_Flr_SF = '2nd_Flr_SF',
+                 Gr_Liv_Area ,
+                 Full_Bath,
+                 Half_Bath,
+                 Bsmt_Full_Bath,
+                 Bsmt_Half_Bath,
+                 TotRms_AbvGrd , 
+                 Garage_Yr_Blt ,
+                 Garage_Cars ,
+                 Garage_Area,
+                 Exter_Qual,
+                 #Foundation,
+                 Kitchen_Qual,
+                 Kitchen_AbvGr,
+                 Fireplaces,
+                 Fireplace_Qu, 
+                 Yr_Sold,
+                 Enclosed_Porch,
+                 ThirdSsn_Porch = "3Ssn_Porch",
+                 Screen_Porch,
+                 Open_Porch_SF,
+                 Bldg_Type,
+                 MS_Zoning,
+                 Lot_Frontage,
+                 Lot_Shape,
+                 Land_Contour,
+                 Lot_Config,
+                 Land_Slope,
+                 Condition_1,
+                 Overall_Cond,
+                 Exter_Cond,
+                 Bsmt_Qual,
+                 Bsmt_Cond,
+                 BsmtFin_Type_1,
+                 BsmtFin_SF_1,
+                 BsmtFin_Type_2,
+                 Bsmt_Exposure,
+                 Heating_QC,
+                 Central_Air,
+                 Bedroom_AbvGr,
+                 Misc_Val, # Revisar colapsar
+                 Neighborhood,
+                 Exter_Qual,
+                 Functional,
+                 Pool_Area,
+                 ID
+  )
+
+##### Plots #####
+
+casas %>% ggplot(aes(x = reorder(Neighborhood, SalePrice_m2, median), y = SalePrice_m2)) +
+  geom_boxplot() +
+  geom_jitter()
+
+Condition_1
+
+##### Partición #####
+
+set.seed(20180911)
+casas_split <- initial_split(casas_df1, prop = .7)
+casas_train <- training(casas_split)
+casas_test  <- testing(casas_split)
+
+
+### Receta #####
+
+casas_rec <- recipe(SalePrice_m2 ~ . , data = casas_train) %>%
+  update_role(ID, new_role = "id variable") %>% 
+  #step_filter(!ID %in% c(419, 404, 855, 427, 294, 249, 872, 311, 58, 272, 951, #
+  #                       899, 981, 858, 324, 1159,  853, 213, 428)) %>%
+  step_filter(!ID %in% c(480, 386, 300, 500, 1229, 349, 1169, 320, 70)) %>%
+  step_mutate(#TotalBaths = Full_Bath + Bsmt_Full_Bath + 0.5 * (Half_Bath + Bsmt_Half_Bath),
+              Garage_Yr_Blt = if_else(is.na(Garage_Yr_Blt), Year_Built, Garage_Yr_Blt),
+              Age_House = Yr_Sold - Year_Remod,
+              TotalSF   = Gr_Liv_Area + Total_Bsmt_SF,
+              Overall_Qual_2 = Overall_Qual^2,
+              Overall_Qual_3 = Overall_Qual^3,
+              #AvgRoomSF   = Gr_Liv_Area / TotRms_AbvGrd,
+              Porch_SF     = Enclosed_Porch + ThirdSsn_Porch + Open_Porch_SF,
+              Porch       = factor(Porch_SF > 0),
+              Pool = if_else(Pool_Area > 0,1,0)
+  ) %>% 
+  #step_interact(~ Overall_Qual:TotalBaths) %>%
+  step_interact(~ Overall_Cond:TotRms_AbvGrd) %>%
+  step_interact(~ Overall_Qual:TotRms_AbvGrd) %>%
+  step_interact(~ Overall_Qual:Gr_Liv_Area) %>% 
+  #step_interact(~ Overall_Qual:Overall_Cond) %>%
+  #step_interact(~ Overall_Cond:Age_House) %>%
+  step_interact(~ Overall_Qual:Total_Bsmt_SF) %>%
+  #step_interact(~ Overall_Cond:Garage_Area) %>%
+  step_interact(~ TotalSF:Age_House) %>%
+  step_interact(~ Second_Flr_SF:Bedroom_AbvGr) %>%
+  step_interact(~ TotalSF:TotRms_AbvGrd) %>%
+  #step_interact(~ Age_House:TotRms_AbvGrd) %>%
+  #step_interact(~ Overall_Qual:Misc_Val) %>%
+  step_interact(~ Overall_Cond:Bedroom_AbvGr) %>%
+  #step_interact(~ Second_Flr_SF:First_Flr_SF) %>%
+  step_interact(~ Year_Built:Garage_Yr_Blt) %>%
+  step_ratio(Bedroom_AbvGr, denom = denom_vars(Gr_Liv_Area)) %>% 
+  step_ratio(Second_Flr_SF, denom = denom_vars(First_Flr_SF)) %>% 
+  step_mutate(Exter_Cond = fct_collapse(Exter_Cond, Bad = c("Po", "Fa"),
+                                        TA = c("TA", "Gd", "Ex")),
+              Condition_1 = fct_collapse(Condition_1, 
+                                         Artery_Feedr = c("Feedr", "Artery"), # Revisar 
+                                         Railr = c("RRAn", "RRNn", "RRNe", "RRAe"),
+                                         Norm = "Norm",
+                                         Pos = c("PosN", "PosA")), #cambioV
+              Land_Slope = fct_collapse(Land_Slope, Mod_Sev = c("Mod", "Sev")),
+              Land_Contour = fct_collapse(Land_Contour, Low_HLS = c("Low","HLS"),
+                                          Bnk_Lvl = c("Lvl","Bnk")),
+              Lot_Shape = fct_collapse(Lot_Shape, IRREG = c("IR3", "IR2", "IR1")),
+              Kitchen_Qual = fct_collapse(Kitchen_Qual, Bad = c("Fa", "Po")),
+              Bsmt_Cond = fct_collapse(Bsmt_Cond, Exc = c("Gd", "Ex"),
+                                       Bad = c("Po", "Missing")),
+              #Bsmt_Qual = fct_collapse(Bsmt_Qual, Fa_Po = c("Fa", "Po")),
+              BsmtFin_Type_1 = fct_collapse(BsmtFin_Type_1, Rec_BLQ = c("Rec", "BLQ")),
+              BsmtFin_Type_2 = fct_collapse(BsmtFin_Type_2, Rec_BLQ = c("Rec", "BLQ", "LwQ")),
+              Neighborhood = fct_collapse(Neighborhood, Greens_GrnHill = c("Greens", "GrnHill"),#
+                                          Blueste_Veenker = c("Blueste", "Veenker"),#
+                                          Blmngtn_Timber = c("Blmngtn", "Timber"),#
+                                          NPkVill_NAmes = c("NPkVill", "NAmes"),#
+                                          ClearCr_NridgHt_StoneBr = c("ClearCr","NridgHt", "StoneBr"),#
+                                          BrDale_OldTown = c("BrDale", "OldTown"), #
+                                          SWISU_Sawyer = c("SWISU", "MeadowV, IDOTRR")#
+                                          ),
+              Fireplace_Qu = fct_collapse(Fireplace_Qu, Miss = c("Po", "Missing")),
+              #Heating_QC = fct_collapse(Heating_QC, Miss = c("Po", "OthW")),
+              MS_Zoning = fct_collapse(MS_Zoning, I_R_M_H = c("RM", "I (all)", "RH", "A (agr)")),
+              #Bldg_Type = fct_collapse(Bldg_Type, Du_Tu = c("Duplex", "Twnhs")),
+              #Foundation = fct_collapse(Foundation, Wood_Stone = c("Wood", "Stone")),
+              #Functional = fct_collapse(Functional, Min = c("Min1", "Min2"),  Maj = c("Maj1", "Maj2", "Mod"))
+  ) %>% 
+  step_relevel(Bsmt_Qual, ref_level = "TA") %>% 
+  step_relevel(Condition_1, ref_level = "Norm") %>%
+  step_normalize(all_predictors(), -all_nominal()) %>%
+  step_dummy(all_nominal()) %>% 
+  #step_interact(~ matches("Bsmt_Qual"):Total_Bsmt_SF) %>%
+  step_interact(~ matches("Bsmt_Qual"):TotRms_AbvGrd) %>%  
+  #step_interact(~ matches("Bsmt_Qual"):Bedroom_AbvGr) %>%
+  #step_interact(~ matches("Bsmt_Cond"):TotRms_AbvGrd) %>% 
+  step_interact(~ matches("BsmtFin_Type_1"):BsmtFin_SF_1) %>%
+  #step_interact(~ matches("BsmtFin_Type_1"):Total_Bsmt_SF) %>%
+  step_interact(~ matches("Kitchen_Qual"):Kitchen_AbvGr) %>%
+  
+  step_interact(~ matches("Heating_QC"):TotRms_AbvGrd) %>%
+  step_interact(~ matches("Heating_QC"):TotalSF) %>%
+  step_interact(~ matches("Heating_QC"):Second_Flr_SF) %>%
+  #step_interact(~ matches("Neighborhood"):matches("Condition_1")) %>%
+  step_rm(First_Flr_SF, Second_Flr_SF, Year_Remod, Yr_Sold,
+          Bsmt_Full_Bath, Bsmt_Half_Bath, 
+          Kitchen_AbvGr, BsmtFin_Type_1_Unf, 
+          Total_Bsmt_SF, Kitchen_AbvGr, Overall_Qual, Pool_Area, ID,
+          #Bsmt_Qual_Gd_x_Total_Bsmt_SF_x_TotRms_AbvGrd,
+          Heating_QC_TA_x_TotRms_AbvGrd_x_TotalSF_x_Second_Flr_SF,
+          #Bsmt_Qual_Fa_x_Total_Bsmt_SF_x_Bedroom_AbvGr,
+          Gr_Liv_Area, Bsmt_Qual_Missing,
+          #Bsmt_Qual_Missing_x_Total_Bsmt_SF,
+          Bsmt_Qual_Missing_x_TotRms_AbvGrd,
+          #Bsmt_Qual_Missing_x_Bedroom_AbvGr,
+          #Bsmt_Qual_Missing_x_TotRms_AbvGrd_x_Bedroom_AbvGr,
+          BsmtFin_Type_1_Missing, 
+          BsmtFin_Type_2_Missing,
+          BsmtFin_Type_1_Missing_x_BsmtFin_SF_1,
+          Porch_SF,
+          #BsmtFin_Type_1_Missing_x_BsmtFin_SF_1_x_Total_Bsmt_SF,
+          #BsmtFin_Type_1_Unf_x_BsmtFin_SF_1_x_Total_Bsmt_SF,
+          Kitchen_Qual_Gd_x_Kitchen_AbvGr,
+          Bsmt_Cond_Fa, Bsmt_Cond_TA,Bsmt_Qual_Po,
+          Heating_QC_Fa_x_TotRms_AbvGrd_x_Second_Flr_SF,
+          Heating_QC_Fa_x_TotalSF,
+          Heating_QC_Fa_x_TotalSF_x_Second_Flr_SF,
+          Bsmt_Qual_Po_x_TotRms_AbvGrd
+  ) %>% 
+  prep()
+
+### Ajuste de Receta
+
+casa_juiced <- juice(casas_rec)
+
+### Modelo 1 ###
+
+modelo1 <-  linear_reg() %>%
+  set_mode("regression") %>%
+  set_engine("lm")
+
+lm_fit1 <- fit(modelo1, SalePrice_m2 ~ ., casa_juiced)
+
+p_test <- predict(lm_fit1, bake(casas_rec, casas_test)) %>%
+  bind_cols(casas_test) %>%  
+  dplyr::mutate(.pred = .pred * Gr_Liv_Area,
+                SalePrice = SalePrice_m2* Gr_Liv_Area) %>% 
+  dplyr::mutate(err = (log(1 + SalePrice) - log(1 + .pred))^2)
+
+p_test %>% pull(err) %>% mean() %>% sqrt() # 0.09745451
+
+
+
+p_test %>% 
+  arrange(desc(err)) %>% 
+  as.data.frame() %>% head(10)
+
+
+lm_fit1 %>% tidy() %>% arrange(desc(p.value)) %>% 
+  as.data.frame() %>% head(30)
+
+p_test %>% ggplot(aes(x= SalePrice, y=.pred)) + geom_point() 
+
+
+########
+#######
+#######
+
+#### PRUEBA KAGGLE####
+
+casas_prueba[696, "Heating_QC"] <- "Fa"
+
+test <- casas_prueba %>% 
+  dplyr::filter (Sale_Condition == 'Normal') %>% 
+  dplyr::select (Overall_Qual,
+                 Year_Built  ,
+                 Year_Remod = 'Year_Remod/Add',
+                 Mas_Vnr_Area ,
+                 Total_Bsmt_SF ,     
+                 First_Flr_SF = '1st_Flr_SF',
+                 Second_Flr_SF = '2nd_Flr_SF',
+                 Gr_Liv_Area ,
+                 Full_Bath,
+                 Half_Bath,
+                 Bsmt_Full_Bath,
+                 Bsmt_Half_Bath,
+                 TotRms_AbvGrd , 
+                 Garage_Yr_Blt ,
+                 Garage_Cars ,
+                 Garage_Area,
+                 Exter_Qual,
+                 #Foundation,
+                 Kitchen_Qual,
+                 Kitchen_AbvGr,
+                 Fireplaces,
+                 Fireplace_Qu, 
+                 Yr_Sold,
+                 Enclosed_Porch,
+                 ThirdSsn_Porch = "3Ssn_Porch",
+                 Screen_Porch,
+                 Open_Porch_SF,
+                 Bldg_Type,
+                 MS_Zoning,
+                 Lot_Frontage,
+                 Lot_Shape,
+                 Land_Contour,
+                 Lot_Config,
+                 Land_Slope,
+                 Condition_1,
+                 Overall_Cond,
+                 Exter_Cond,
+                 Bsmt_Qual,
+                 Bsmt_Cond,
+                 BsmtFin_Type_1,
+                 BsmtFin_SF_1,
+                 BsmtFin_Type_2,
+                 Bsmt_Exposure,
+                 Heating_QC,
+                 Central_Air,
+                 Bedroom_AbvGr,
+                 Misc_Val, # Revisar colapsar
+                 Neighborhood,
+                 Exter_Qual,
+                 Functional,
+                 Pool_Area
+  )
+
+train <- casas_df1
+casas_rec_KAGGLE <- casas_rec
+
+casa_juiced_KAGGLE <- juice(casas_rec_KAGGLE)
+
+lm_fit1_KAGGLE <- fit(modelo1, SalePrice_m2 ~ ., casa_juiced_KAGGLE)
+lm_fit1_KAGGLE
+
+
+
+submission1 <- predict(lm_fit1_KAGGLE, bake(casas_rec_KAGGLE, test)) %>%
+  bind_cols(test)  %>% mutate(SalePrice=.pred*Gr_Liv_Area) 
+
+submission1_KAGGLE <- submission1 %>% 
+  mutate(id=row.names(submission1)) %>% 
+  select(id, SalePrice)
+
+
+submission1_KAGGLE[is.na(submission1_KAGGLE$SalePrice),]
+
+
+write_csv(submission1_KAGGLE, "Acturio_sub2.csv")  
+
+
+
+### Modelo 2 ###
+
+modelo_RF <-  rand_forest(mtry = 30, trees = 3000, min_n = 10) %>% 
+  set_engine("ranger", importance = "impurity_corrected", verbose = T) %>% 
+  set_mode("regression") %>% translate() 
+
+rf_fit1 <- fit(modelo_RF, SalePrice_m2 ~ ., casa_juiced)
+
+rf_fit1
+tibble(variable = reorder(names(rf_fit1$fit$variable.importance),
+                          rf_fit1$fit$variable.importance), 
+       value = rf_fit1$fit$variable.importance) %>% 
+  arrange(desc(value)) %>% head(100) %>% 
+  ggplot(aes(x = variable, y = value)) +
+  geom_bar(fill = "blue", stat = "identity") +
+  theme(text = element_text(size = 8)) +
+  coord_flip()
+
+
+p_test_rf <- predict(rf_fit1, bake(casas_rec, casas_test)) %>% 
+  bind_cols(., casas_test) %>% 
+  mutate(.pred=.pred*Gr_Liv_Area, SalePrice = SalePrice_m2*Gr_Liv_Area) %>% 
+  mutate(err = (log(1+SalePrice) - log(1 + .pred))^2)
+
+p_test_rf$err %>% mean() %>% sqrt()
+
+
+
+
+
