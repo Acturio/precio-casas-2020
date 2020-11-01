@@ -11,6 +11,8 @@ library(tidypredict)
 
 #### LECTURA DE ARCHIVOS ####
 
+summary(is.na(casas))
+
 casas <- read_csv("casas_entrena.csv")
 casas_prueba <- read_csv("casas_prueba.csv")
 
@@ -147,7 +149,7 @@ casas_rec <- recipe(SalePrice_m2 ~ . , data = casas_train) %>%
   update_role(ID, new_role = "id variable") %>% 
   #step_filter(!ID %in% c(419, 404, 855, 427, 294, 249, 872, 311, 58, 272, 951, #
   #                       899, 981, 858, 324, 1159,  853, 213, 428)) %>%
-  #step_filter(!ID %in% c(480, 386, 300, 500, 1229, 349, 1169, 320, 70)) %>%
+  step_filter(!ID %in% c(480, 386, 300, 500, 1229, 349, 1169, 320, 70)) %>%
   step_mutate(
     TotalBaths = Full_Bath + Bsmt_Full_Bath + 0.5 * (Half_Bath + Bsmt_Half_Bath),
     #Garage_Yr_Blt = if_else(is.na(Garage_Yr_Blt), Year_Built, Garage_Yr_Blt),
@@ -176,11 +178,11 @@ casas_rec <- recipe(SalePrice_m2 ~ . , data = casas_train) %>%
   #step_interact(~ Overall_Qual:Misc_Val) %>%
   #step_interact(~ Overall_Cond:Bedroom_AbvGr) %>%
   #step_interact(~ Second_Flr_SF:First_Flr_SF) %>%
-  step_interact(~ Year_Built:Garage_Yr_Blt) %>%
+  #step_interact(~ Year_Built:Garage_Yr_Blt) %>%
   step_ratio(Bedroom_AbvGr, denom = denom_vars(Gr_Liv_Area)) %>% 
   step_ratio(Second_Flr_SF, denom = denom_vars(First_Flr_SF)) %>% 
   step_mutate(Exter_Cond = fct_collapse(Exter_Cond, Bad = c("Po", "Fa"),
-                                        TA = c("TA"),
+                                        TA = "TA",
                                         Gd_Ex = c("Gd", "Ex")),
               Condition_1 = fct_collapse(Condition_1, 
                                          Artery_Feedr = c("Feedr", "Artery"), # Revisar 
@@ -267,9 +269,9 @@ casa_juiced <- juice(casas_rec)
 
 ### Modelo 1 ###
 
-modelo1 <-  linear_reg() %>%
+modelo1 <-  linear_reg(mixture = .3, penalty = .02) %>%
   set_mode("regression") %>%
-  set_engine("lm")
+  set_engine("glmnet")
 
 lm_fit1 <- fit(modelo1, SalePrice_m2 ~ ., casa_juiced)
 
@@ -279,7 +281,8 @@ p_test <- predict(lm_fit1, bake(casas_rec, casas_test)) %>%
                 SalePrice = SalePrice_m2* Gr_Liv_Area) %>% 
   dplyr::mutate(err = (log(1 + SalePrice) - log(1 + .pred))^2)
 
-p_test %>% pull(err) %>% mean() %>% sqrt() # 0.09745451
+p_test %>% pull(err) %>% mean() %>% sqrt() 
+# 0.09745451
 
 
 
@@ -340,7 +343,7 @@ metricas_vc %>% show_best(metric = "rmse")
 metricas_vc %>% show_best(metric =  "mae")
 
 
-modelo_reg <- linear_reg(mixture = 0, penalty = .2) %>% 
+modelo_reg <- linear_reg(mixture = .3, penalty = .02) %>% 
   set_engine("glmnet")
 
 lm_fit_reg <- fit(modelo_reg, SalePrice_m2 ~ ., casa_juiced)
@@ -448,13 +451,13 @@ submission1 <- predict(lm_fit1_KAGGLE, bake(casas_rec_KAGGLE, test)) %>%
 
 submission1_KAGGLE <- submission1 %>% 
   mutate(id=row.names(submission1)) %>% 
-  select(id, SalePrice)
+  select(id, SalePrice) 
 
 
 submission1_KAGGLE[is.na(submission1_KAGGLE$SalePrice),]
 
 
-write_csv(submission1_KAGGLE, "Acturio_sub2.csv")  
+write_csv(submission1_KAGGLE, "vic_reg_.csv")  
 
 
 
