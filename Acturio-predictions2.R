@@ -137,8 +137,6 @@ casas %>% ggplot(aes(x = reorder(Neighborhood, SalePrice_m2, median), y = SalePr
   geom_boxplot() +
   geom_jitter()
 
-Condition_1
-
 ##### Partición #####
 
 set.seed(20180911)
@@ -163,7 +161,10 @@ casas_rec <- recipe(SalePrice_m2 ~ . , data = casas_train) %>%
               #AvgRoomSF   = Gr_Liv_Area / TotRms_AbvGrd,
               Porch_SF     = Enclosed_Porch + ThirdSsn_Porch + Open_Porch_SF,
               Porch       = factor(Porch_SF > 0),
-              Pool = if_else(Pool_Area > 0,1,0)
+              Pool = if_else(Pool_Area > 0,1,0),
+              # anio_mes = lubridate::make_date(year = as.numeric(Yr_Sold), 
+              #                                 month = as.numeric(Mo_Sold)) %>% 
+              #   as.factor()
   ) %>% 
   #step_interact(~ Overall_Qual:TotalBaths) %>%
   step_interact(~ Overall_Cond:TotRms_AbvGrd) %>%
@@ -276,7 +277,7 @@ p_test <- predict(lm_fit1, bake(casas_rec, casas_test)) %>%
                 SalePrice = SalePrice_m2* Gr_Liv_Area) %>% 
   dplyr::mutate(err = (log(1 + SalePrice) - log(1 + .pred))^2)
 
-p_test %>% pull(err) %>% mean() %>% sqrt() # 0.09745451
+p_test %>% pull(err) %>% mean() %>% sqrt() # 0.08656526
 
 
 
